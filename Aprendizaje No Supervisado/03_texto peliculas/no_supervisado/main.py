@@ -19,7 +19,7 @@ nltk.download('punkt_tab')  # Recurso adicional necesario para español
 try:
     df = pd.read_csv("peliculas.csv", encoding="utf-8")
 except FileNotFoundError:
-    print("Error: No se encontró el archivo 'comentarios_peliculas.csv'")
+    print("Error: No se encontró el archivo 'peliculas.csv'")
     exit()
     
 df['comentario'] = df['comentario'].astype(str)
