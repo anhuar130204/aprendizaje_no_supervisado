@@ -9,6 +9,7 @@ from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 import nltk
 import re
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # Descargar recursos de NLTK
 nltk.download('stopwords')
@@ -21,20 +22,37 @@ try:
 except FileNotFoundError:
     print("Error: No se encontró el archivo 'peliculas.csv'")
     exit()
-    
-df['comentario'] = df['comentario'].astype(str)
+
+df['critica'] = df['critica'].astype(str)
 
 # Preprocesamiento de texto
 def preprocesar_texto(texto):
     # Eliminar caracteres especiales y convertir a minúsculas
     texto = re.sub(r'[^\w\s]', '', texto.lower())
     # Tokenizar y eliminar stopwords
-    palabras = word_tokenize(texto)  # Eliminamos el parámetro language='spanish'
+    palabras = word_tokenize(texto)
     stop_words = set(stopwords.words('spanish'))
     palabras = [palabra for palabra in palabras if palabra not in stop_words and len(palabra) > 2]
     return ' '.join(palabras)
 
-df['comentario_limpio'] = df['comentario'].apply(preprocesar_texto)
+# Preprocesar las críticas
+df['comentario_limpio'] = df['critica'].apply(preprocesar_texto)
+
+# Análisis de Sentimiento con VADER
+analyzer = SentimentIntensityAnalyzer()
+
+# Función para clasificar las críticas como positivas, negativas o neutrales
+def obtener_sentimiento(texto):
+    puntaje = analyzer.polarity_scores(texto)
+    if puntaje['compound'] >= 0.05:
+        return 'Positiva'
+    elif puntaje['compound'] <= -0.05:
+        return 'Negativa'
+    else:
+        return 'Neutral'
+
+# Añadir la columna de sentimiento
+df['sentimiento'] = df['critica'].apply(obtener_sentimiento)
 
 # Vectorización con TF-IDF
 vectorizer = TfidfVectorizer(max_features=2000)
@@ -72,12 +90,23 @@ plt.ylabel('Componente PCA 2')
 plt.legend(title='Cluster')
 plt.show()
 
-# Analizar los clusters
+# Añadir títulos de películas para visualización más comprensible
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x=X_pca[:, 0], y=X_pca[:, 1], hue=df['cluster'], palette='viridis', s=100)
+for i in range(len(df)):
+    plt.text(X_pca[i, 0], X_pca[i, 1], df['titulo'][i], fontsize=8)
+plt.title('Agrupamiento de Películas (K-Means)')
+plt.xlabel('Componente PCA 1')
+plt.ylabel('Componente PCA 2')
+plt.legend(title='Cluster')
+plt.show()
+
+# Analizar los clusters y mostrar ejemplos con títulos de películas
 for i in range(k):
     print(f"\nCluster {i}:")
-    muestra = df[df['cluster'] == i]['comentario'].sample(3, random_state=42)
-    for comentario in muestra:
-        print(f" - {comentario}")
+    muestra = df[df['cluster'] == i][['titulo', 'critica', 'sentimiento']].sample(3, random_state=42)
+    for idx, row in muestra.iterrows():
+        print(f" - {row['titulo']} ({row['sentimiento']}): {row['critica']}")
 
 # Interpretación manual (asignar etiquetas según las palabras más frecuentes)
 from collections import Counter
